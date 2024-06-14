@@ -34,19 +34,23 @@ class _HomeScrState extends State<HomeScr> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.blueGrey[900],
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Center(
-            // TODO: 'Column' here should be changed to 'ListView'
-            // why? on dialog pop-up, keyboard shifts foreground content; bottom btns - up
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(
+            left: 13,
+            right: 13,
+            top: 30,
+          ),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height - 80,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Expanded(
-                  flex: 3,
+                SizedBox(
+                  height: 500,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.mail_lock_sharp,
@@ -67,50 +71,56 @@ class _HomeScrState extends State<HomeScr> {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () {
-                            // TODO: go to next screen to add plaintext, encrypt, etc
-                          },
-                          style: TextButton.styleFrom(
-                            backgroundColor: Colors.blueGrey[700],
-                            shape: const BeveledRectangleBorder(),
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                          ),
-                          child: Icon(
-                            Icons.send_sharp,
-                            color: Colors.blueGrey[400],
-                            size: 45,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (BuildContext context) =>
+                              const HomeScrDialog(
+                            title: 'Sender\'s phone number',
+                            dialogForSender: true,
                           ),
                         ),
-                      ),
-                      const SizedBox(
-                        width: 15,
-                      ),
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => showDialog(
-                            context: context,
-                            builder: (BuildContext context) =>
-                                const HomeScrDialog(),
-                          ),
-                          style: TextButton.styleFrom(
-                            backgroundColor: Colors.blueGrey[700],
-                            shape: const BeveledRectangleBorder(),
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                          ),
-                          child: Icon(
-                            Icons.mark_email_unread_sharp,
-                            color: Colors.blueGrey[400],
-                            size: 45,
-                          ),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.blueGrey[700],
+                          shape: const BeveledRectangleBorder(),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                        ),
+                        child: Icon(
+                          Icons.send_sharp,
+                          color: Colors.blueGrey[400],
+                          size: 45,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(
+                      width: 15,
+                    ),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (BuildContext context) =>
+                              const HomeScrDialog(
+                            title: 'Receiver\'s phone number',
+                            dialogForSender: false,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.blueGrey[700],
+                          shape: const BeveledRectangleBorder(),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                        ),
+                        child: Icon(
+                          Icons.mark_email_unread_sharp,
+                          color: Colors.blueGrey[400],
+                          size: 45,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -122,7 +132,13 @@ class _HomeScrState extends State<HomeScr> {
 }
 
 class HomeScrDialog extends StatefulWidget {
-  const HomeScrDialog({super.key});
+  final String title;
+  final bool dialogForSender; // true for 'Sender'; false for 'Receiver'
+  const HomeScrDialog({
+    super.key,
+    required this.title,
+    required this.dialogForSender,
+  });
 
   @override
   State<HomeScrDialog> createState() => _HomeScrDialogState();
@@ -143,12 +159,12 @@ class _HomeScrDialogState extends State<HomeScrDialog> {
     return AlertDialog(
       backgroundColor: Colors.blueGrey[100],
       title: Text(
-        'Receiver\'s phone number',
-        style: GoogleFonts.orbitron(
-          color: Colors.blueGrey[800],
-          fontSize: 20,
-          fontWeight: FontWeight.w400,
-        ),
+        widget.title,
+      ),
+      titleTextStyle: GoogleFonts.ubuntu(
+        color: Colors.blueGrey[800],
+        fontSize: 21,
+        fontWeight: FontWeight.w400,
       ),
       content: TextField(
         keyboardType: TextInputType.phone,
@@ -190,8 +206,13 @@ class _HomeScrDialogState extends State<HomeScrDialog> {
           onPressed: (dialogBtnEnable)
               ? () {
                   Navigator.pop(context);
-                  // call api passing entered phone no as payload
-                  print('phone no entered!');
+                  if (widget.dialogForSender) {
+                    // sender btn pressed
+                    print('sender btn pressed');
+                  } else {
+                    // receiver btn pressed
+                    print('receiver btn pressed');
+                  }
                 }
               : null,
           style: TextButton.styleFrom(
