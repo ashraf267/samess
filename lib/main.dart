@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:encrypt/encrypt.dart' as encrypt;
 
 void main() {
   runApp(const MyApp());
@@ -253,6 +254,17 @@ class SenderScr extends StatefulWidget {
 }
 
 class _SenderScrState extends State<SenderScr> {
+  final _ptController = TextEditingController();
+  final _keyGenController =
+      TextEditingController.fromValue(TextEditingValue(text: encKey));
+  IconData? lockIcon = Icons.lock_open_sharp;
+
+  static String encKey = ""; // encryption key
+
+  void _encryptData() {
+    String plaintext = _ptController.text;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -284,15 +296,32 @@ class _SenderScrState extends State<SenderScr> {
 
         // actions
         // TODO: add a lock icon to encrypt; lock_open init null
+        // only encrypt when the pt and key is not empty
         actions: [
           Padding(
             padding: const EdgeInsets.only(
               right: 6,
             ),
             child: IconButton(
-              onPressed: () {},
-              icon: const Icon(
-                Icons.lock_open_sharp,
+              onPressed: () {
+                // TODO: check if plaintext field and keygen field are not empty
+                if (_ptController.text.isNotEmpty &&
+                    _keyGenController.text.isNotEmpty) {
+                  // TODO: do aes encryption
+                  print('text encrypted succ!');
+
+                  // TODO: change icon to lock
+                  setState(() {
+                    lockIcon = Icons.lock_outline_sharp;
+                  });
+                } else {
+                  // TODO: show snackbar that says 'Add a text and generate key to encrypt'
+                  print('Add a text and generate key to encrypt');
+                }
+              },
+              icon: Icon(
+                // Icons.lock_open_sharp,
+                lockIcon,
               ),
               iconSize: 33,
               color: Colors.blueGrey[200],
@@ -312,6 +341,7 @@ class _SenderScrState extends State<SenderScr> {
               SizedBox(
                 height: 200,
                 child: TextField(
+                  controller: _ptController,
                   onTapOutside: (event) => FocusScope.of(context).unfocus(),
                   maxLines: null,
                   expands: true,
@@ -352,6 +382,7 @@ class _SenderScrState extends State<SenderScr> {
                           color: Colors.white,
                         ),
                         // set controller to an empty str, and set state when 'keyGen' btn is pressed
+                        controller: _keyGenController,
                         decoration: InputDecoration(
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.zero,
@@ -370,7 +401,24 @@ class _SenderScrState extends State<SenderScr> {
                     ),
                     // kenGen icon btn
                     IconButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        // gen random, unique key
+                        String generatedKey;
+                        try {
+                          generatedKey = encrypt.Key.fromLength(16).base64;
+                          if (generatedKey.isNotEmpty) {
+                            // test: print gen key
+                            print('key succ gen= $generatedKey');
+                            setState(() {
+                              _keyGenController.text = generatedKey;
+                              // reset its field to show the newly gen key
+                              encKey = generatedKey;
+                            });
+                          }
+                        } catch (e) {
+                          print('cannot gen key; $e');
+                        }
+                      },
                       icon: Icon(
                         Icons.key_sharp,
                         color: Colors.blueGrey[200],
