@@ -12,8 +12,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
+        scaffoldBackgroundColor: Colors.blueGrey[900],
         textSelectionTheme: TextSelectionThemeData(
-          selectionHandleColor: Colors.blueGrey[800],
+          cursorColor: Colors.blueGrey[300],
+          selectionHandleColor: Colors.blueGrey[600],
         ),
       ),
       debugShowCheckedModeBanner: false,
@@ -35,7 +37,7 @@ class _HomeScrState extends State<HomeScr> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.blueGrey[900],
+      // backgroundColor: Colors.blueGrey[900],
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(
@@ -169,7 +171,6 @@ class _HomeScrDialogState extends State<HomeScrDialog> {
       content: TextField(
         keyboardType: TextInputType.phone,
         controller: myController,
-        cursorColor: Colors.blueGrey,
         maxLength: 11,
         decoration: const InputDecoration(
           focusedBorder: UnderlineInputBorder(
@@ -208,6 +209,15 @@ class _HomeScrDialogState extends State<HomeScrDialog> {
                   Navigator.pop(context);
                   if (widget.dialogForSender) {
                     // sender btn pressed
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        // TODO: pass phone no to SenderScr
+                        builder: (BuildContext context) => SenderScr(
+                          senderPhoneNo: myController.text,
+                        ),
+                      ),
+                    );
                     print('sender btn pressed');
                   } else {
                     // receiver btn pressed
@@ -227,6 +237,222 @@ class _HomeScrDialogState extends State<HomeScrDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class SenderScr extends StatefulWidget {
+  final String senderPhoneNo;
+  const SenderScr({
+    super.key,
+    required this.senderPhoneNo,
+  });
+
+  @override
+  State<SenderScr> createState() => _SenderScrState();
+}
+
+class _SenderScrState extends State<SenderScr> {
+  @override
+  void initState() {
+    super.initState();
+    print('sender no: ${widget.senderPhoneNo}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        // leading
+        leading: Icon(
+          Icons.person,
+          color: Colors.blueGrey[200],
+          size: 30,
+        ),
+
+        // title
+        title: Text(
+          // '09134596317',
+          widget.senderPhoneNo,
+        ),
+        titleTextStyle: GoogleFonts.ubuntu(
+          fontSize: 21,
+        ),
+        titleSpacing: 1,
+
+        // actions
+        // TODO: add a lock icon to encrypt; lock_open init null
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(
+              right: 6,
+            ),
+            child: IconButton(
+              onPressed: () {},
+              icon: const Icon(
+                Icons.lock_open_sharp,
+              ),
+              iconSize: 33,
+              color: Colors.blueGrey[200],
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 17,
+        ),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height - 110,
+          child: Column(
+            children: [
+              // plaintext
+              SizedBox(
+                height: 200,
+                child: TextField(
+                  onTapOutside: (event) => FocusScope.of(context).unfocus(),
+                  maxLines: null,
+                  expands: true,
+                  keyboardType: TextInputType.multiline,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    color: Colors.black,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.blueGrey[100],
+                    focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.blueGrey,
+                        width: 2.5,
+                      ),
+                    ),
+                    border: const UnderlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                    ),
+                  ),
+                ),
+              ),
+
+              // TODO: add a read-only textfield for key gen. And an icon btn beside it to init the action
+              SizedBox(
+                height: 125,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        onTapOutside: (event) =>
+                            FocusScope.of(context).unfocus(),
+                        keyboardType: TextInputType.none,
+                        readOnly: true,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          color: Colors.white,
+                        ),
+                        // set controller to an empty str, and set state when 'keyGen' btn is pressed
+                        decoration: InputDecoration(
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade800,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // kenGen icon btn
+                    IconButton(
+                      onPressed: () {},
+                      icon: Icon(
+                        Icons.key_sharp,
+                        color: Colors.blueGrey[200],
+                        size: 30,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // phone no
+              // TODO: beside the guy, add a select from contacts icon btn, which is disabled on textfield not empty
+              // TODO: do some copy and paste magic here...
+              SizedBox(
+                height: 125,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        keyboardType: TextInputType.phone,
+                        maxLength: 11,
+                        onTapOutside: (event) =>
+                            FocusScope.of(context).unfocus(),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          color: Colors.white,
+                        ),
+                        // set controller to an empty str, and set state when 'keyGen' btn is pressed
+                        decoration: InputDecoration(
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade200,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade200,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // contacts icon btn
+                    IconButton(
+                      onPressed: () {},
+                      icon: Icon(
+                        Icons.contacts_sharp,
+                        color: Colors.blueGrey[200],
+                        size: 30,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // send btn
+              Container(
+                margin: const EdgeInsets.only(top: 230),
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {},
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.blueGrey[700],
+                    shape: const BeveledRectangleBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                  ),
+                  child: Text(
+                    'Send',
+                    style: GoogleFonts.orbitron(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blueGrey[100], // disabled to 400
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
