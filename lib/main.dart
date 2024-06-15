@@ -254,15 +254,32 @@ class SenderScr extends StatefulWidget {
 }
 
 class _SenderScrState extends State<SenderScr> {
+  bool canSend = false; // enable or disable the 'Send' btn
   final _ptController = TextEditingController();
-  final _keyGenController =
-      TextEditingController.fromValue(TextEditingValue(text: encKey));
+  final _ctController = TextEditingController();
+  final _pNoController = TextEditingController();
+  final _keyGenController = TextEditingController();
   IconData? lockIcon = Icons.lock_open_sharp;
 
   static String encKey = ""; // encryption key
 
   void _encryptData() {
     String plaintext = _ptController.text;
+    final iv = encrypt.IV.fromLength(16);
+    if (encKey.isNotEmpty) {
+      final key = encrypt.Key.fromBase64(encKey);
+
+      final encrypter =
+          encrypt.Encrypter(encrypt.AES(key, mode: encrypt.AESMode.cbc));
+
+      // encrypt
+      final encrypted = encrypter.encrypt(plaintext, iv: iv);
+
+      setState(() {
+        _ctController.text = encrypted.base64;
+      });
+      print('ciphertext: ${encrypted.base64}');
+    }
   }
 
   @override
@@ -303,16 +320,44 @@ class _SenderScrState extends State<SenderScr> {
               right: 6,
             ),
             child: IconButton(
+              // onPressed: (alreadyEnc) ? () {
+              //   // TODO: check if plaintext field and keygen field are not empty
+              //   if (_ptController.text.isNotEmpty &&
+              //       _keyGenController.text.isNotEmpty) {
+              //     // TODO: do aes encryption
+              //     print('text encrypted succ!');
+
+              //     // TODO: change icon to lock
+              //     setState(() {
+              //       lockIcon = Icons.lock_outline_sharp;
+              //       alreadyEnc = true;
+              //       // TODO: enable 'Send' btn
+              //       canSend = true;
+              //     });
+              //   } else {
+              //     // TODO: show snackbar that says 'Add a text and generate key to encrypt'
+              //     print('Add a text and generate key to encrypt');
+              //   }
+              // } : null,
               onPressed: () {
                 // TODO: check if plaintext field and keygen field are not empty
                 if (_ptController.text.isNotEmpty &&
-                    _keyGenController.text.isNotEmpty) {
+                    _keyGenController.text.isNotEmpty &&
+                    _pNoController.text.isNotEmpty) {
                   // TODO: do aes encryption
-                  print('text encrypted succ!');
+                  try {
+                    _encryptData();
+                    print('aes enc succ!');
+                  } catch (e) {
+                    print('Unable to encrypt plaintext');
+                  }
+                  print('text encrypted successfully!');
 
                   // TODO: change icon to lock
                   setState(() {
                     lockIcon = Icons.lock_outline_sharp;
+                    // enable 'Send' btn
+                    canSend = true;
                   });
                 } else {
                   // TODO: show snackbar that says 'Add a text and generate key to encrypt'
@@ -339,7 +384,7 @@ class _SenderScrState extends State<SenderScr> {
             children: [
               // plaintext
               SizedBox(
-                height: 200,
+                height: 190,
                 child: TextField(
                   controller: _ptController,
                   onTapOutside: (event) => FocusScope.of(context).unfocus(),
@@ -438,15 +483,16 @@ class _SenderScrState extends State<SenderScr> {
                   children: [
                     Expanded(
                       child: TextField(
+                        controller: _pNoController,
                         keyboardType: TextInputType.phone,
-                        maxLength: 11,
+                        maxLength:
+                            11, // TODO: change the color of this guy to be more visible
                         onTapOutside: (event) =>
                             FocusScope.of(context).unfocus(),
                         style: const TextStyle(
                           fontSize: 17,
                           color: Colors.white,
                         ),
-                        // set controller to an empty str, and set state when 'keyGen' btn is pressed
                         decoration: InputDecoration(
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.zero,
@@ -476,16 +522,55 @@ class _SenderScrState extends State<SenderScr> {
                 ),
               ),
 
+              Divider(
+                color: Colors.blueGrey[800],
+                height: 25,
+              ),
+              // ciphertext
+              SizedBox(
+                height: 170,
+                child: TextField(
+                  controller: _ctController,
+                  onTapOutside: (event) => FocusScope.of(context).unfocus(),
+                  keyboardType: TextInputType.none,
+                  readOnly: true,
+                  maxLines: null,
+                  expands: true,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    color: Colors.black,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.blueGrey[100],
+                    focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.blueGrey,
+                        width: 2.5,
+                      ),
+                    ),
+                    border: const UnderlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                    ),
+                  ),
+                ),
+              ),
+
               // send btn
               Container(
-                margin: const EdgeInsets.only(top: 230),
+                margin: const EdgeInsets.only(top: 35),
                 width: double.infinity,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: (canSend)
+                      ? () {
+                          print('samess: enc msg sent!');
+                        }
+                      : null,
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.blueGrey[700],
                     shape: const BeveledRectangleBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 20),
+                    disabledForegroundColor: Colors.red,
                   ),
                   child: Text(
                     'Send',
