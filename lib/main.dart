@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -282,6 +285,52 @@ class _SenderScrState extends State<SenderScr> {
     }
   }
 
+  void mySnackbar({required String content}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          content,
+          style: GoogleFonts.ubuntu(
+            fontSize: 17,
+            color: Colors.blueGrey[50],
+          ),
+        ),
+        backgroundColor: Colors.blueGrey[800],
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+      ),
+    );
+  }
+
+  // call api for sender to send msg
+  Future<void> _callCreateMsg() async {
+    final reqBody = {
+      'sender': widget.senderPhoneNo,
+      'receiver': _pNoController.text,
+      'text': _ctController.text
+    };
+    try {
+      final res = await http.post(
+        Uri.parse('https://samess.onrender.com/create_message'),
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(reqBody),
+      );
+
+      if (res.statusCode == 200) {
+        // api call successful
+        print('statusCode= ${res.statusCode}');
+
+        final resBody = jsonDecode(res.body);
+        print('res body= $resBody');
+      } else {
+        throw Exception('failed to post created msg');
+      }
+    } catch (e) {
+      //
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -490,8 +539,9 @@ class _SenderScrState extends State<SenderScr> {
                         onTapOutside: (event) =>
                             FocusScope.of(context).unfocus(),
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 25,
                           color: Colors.white,
+                          letterSpacing: 5,
                         ),
                         decoration: InputDecoration(
                           focusedBorder: OutlineInputBorder(
@@ -510,25 +560,25 @@ class _SenderScrState extends State<SenderScr> {
                       ),
                     ),
                     // contacts icon btn
-                    IconButton(
-                      onPressed: () {},
-                      icon: Icon(
-                        Icons.contacts_sharp,
-                        color: Colors.blueGrey[200],
-                        size: 30,
-                      ),
-                    ),
+                    // IconButton(
+                    //   onPressed: () {},
+                    //   icon: Icon(
+                    //     Icons.contacts_sharp,
+                    //     color: Colors.blueGrey[200],
+                    //     size: 30,
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
 
               Divider(
                 color: Colors.blueGrey[800],
-                height: 25,
+                height: 20,
               ),
               // ciphertext
               SizedBox(
-                height: 170,
+                height: 130,
                 child: TextField(
                   controller: _ctController,
                   onTapOutside: (event) => FocusScope.of(context).unfocus(),
@@ -558,12 +608,21 @@ class _SenderScrState extends State<SenderScr> {
 
               // send btn
               Container(
-                margin: const EdgeInsets.only(top: 35),
+                margin: const EdgeInsets.only(top: 20),
                 width: double.infinity,
                 child: TextButton(
                   onPressed: (canSend)
-                      ? () {
-                          print('samess: enc msg sent!');
+                      ? () async {
+                          if (!(widget.senderPhoneNo == _pNoController.text)) {
+                            await _callCreateMsg();
+                            mySnackbar(content: 'Encrypted message sent!');
+                            print('samess: enc msg sent!');
+                          } else {
+                            // reject; can't send sms to self
+                            mySnackbar(
+                                content:
+                                    'Not allowed! Can\'t send sms to self');
+                          }
                         }
                       : null,
                   style: TextButton.styleFrom(
