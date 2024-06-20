@@ -216,16 +216,21 @@ class _HomeScrDialogState extends State<HomeScrDialog> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        // TODO: pass phone no to SenderScr
                         builder: (BuildContext context) => SenderScr(
                           senderPhoneNo: myController.text,
                         ),
                       ),
                     );
-                    print('sender btn pressed');
                   } else {
                     // receiver btn pressed
-                    print('receiver btn pressed');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (BuildContext context) => RecvScr(
+                          recvPhoneNo: myController.text,
+                        ),
+                      ),
+                    );
                   }
                 }
               : null,
@@ -258,6 +263,7 @@ class SenderScr extends StatefulWidget {
 
 class _SenderScrState extends State<SenderScr> {
   bool canSend = false; // enable or disable the 'Send' btn
+  bool isLoading = false; // circular loading indicator icon
   final _ptController = TextEditingController();
   final _ctController = TextEditingController();
   final _pNoController = TextEditingController();
@@ -265,10 +271,10 @@ class _SenderScrState extends State<SenderScr> {
   IconData? lockIcon = Icons.lock_open_sharp;
 
   static String encKey = ""; // encryption key
+  final iv = encrypt.IV.fromLength(16);
 
   void _encryptData() {
     String plaintext = _ptController.text;
-    final iv = encrypt.IV.fromLength(16);
     if (encKey.isNotEmpty) {
       final key = encrypt.Key.fromBase64(encKey);
 
@@ -282,6 +288,7 @@ class _SenderScrState extends State<SenderScr> {
         _ctController.text = encrypted.base64;
       });
       print('ciphertext: ${encrypted.base64}');
+      print('iv= ${iv.base64}');
     }
   }
 
@@ -306,7 +313,8 @@ class _SenderScrState extends State<SenderScr> {
     final reqBody = {
       'sender': widget.senderPhoneNo,
       'receiver': _pNoController.text,
-      'text': _ctController.text
+      'text': _ctController.text,
+      'iv': iv.base64
     };
     try {
       final res = await http.post(
@@ -396,6 +404,7 @@ class _SenderScrState extends State<SenderScr> {
                   // TODO: do aes encryption
                   try {
                     _encryptData();
+                    mySnackbar(content: 'Plaintext encrypted successfully!');
                     print('aes enc succ!');
                   } catch (e) {
                     print('Unable to encrypt plaintext');
@@ -410,6 +419,9 @@ class _SenderScrState extends State<SenderScr> {
                   });
                 } else {
                   // TODO: show snackbar that says 'Add a text and generate key to encrypt'
+                  mySnackbar(
+                      content:
+                          'Add a text, receiver number, and generate a key to encrypt');
                   print('Add a text and generate key to encrypt');
                 }
               },
@@ -430,8 +442,17 @@ class _SenderScrState extends State<SenderScr> {
         child: SizedBox(
           height: MediaQuery.sizeOf(context).height - 110,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // plaintext
+              // custom label
+              Text(
+                'Plaintext',
+                style: TextStyle(
+                  color: Colors.blueGrey[600],
+                  fontSize: 18,
+                ),
+              ),
               SizedBox(
                 height: 190,
                 child: TextField(
@@ -478,6 +499,11 @@ class _SenderScrState extends State<SenderScr> {
                         // set controller to an empty str, and set state when 'keyGen' btn is pressed
                         controller: _keyGenController,
                         decoration: InputDecoration(
+                          labelText: 'Generate Key',
+                          labelStyle: TextStyle(
+                            color: Colors.blueGrey[800],
+                          ),
+                          floatingLabelBehavior: FloatingLabelBehavior.never,
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.zero,
                             borderSide: BorderSide(
@@ -544,6 +570,11 @@ class _SenderScrState extends State<SenderScr> {
                           letterSpacing: 5,
                         ),
                         decoration: InputDecoration(
+                          labelText: 'Receiver\'s Phone Number',
+                          labelStyle: TextStyle(
+                            color: Colors.blueGrey[800],
+                          ),
+                          floatingLabelBehavior: FloatingLabelBehavior.never,
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.zero,
                             borderSide: BorderSide(
@@ -577,6 +608,13 @@ class _SenderScrState extends State<SenderScr> {
                 height: 20,
               ),
               // ciphertext
+              Text(
+                'Ciphertext',
+                style: TextStyle(
+                  color: Colors.blueGrey[600],
+                  fontSize: 18,
+                ),
+                ),
               SizedBox(
                 height: 130,
                 child: TextField(
@@ -614,8 +652,22 @@ class _SenderScrState extends State<SenderScr> {
                   onPressed: (canSend)
                       ? () async {
                           if (!(widget.senderPhoneNo == _pNoController.text)) {
-                            await _callCreateMsg();
+                            print('loading...');
+                            setState(() {
+                              isLoading = true;
+                            });
+                            await _callCreateMsg().then((value) => setState(() {
+                                  isLoading = false;
+                                  canSend = false;
+                                }));
+                            // await Future.delayed(const Duration(seconds: 5));
+                            // setState(() {
+                            //   isLoading = false;
+                            // });
                             mySnackbar(content: 'Encrypted message sent!');
+                            setState(() {
+                              canSend = true;
+                            });
                             print('samess: enc msg sent!');
                           } else {
                             // reject; can't send sms to self
@@ -631,16 +683,618 @@ class _SenderScrState extends State<SenderScr> {
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     disabledForegroundColor: Colors.red,
                   ),
-                  child: Text(
-                    'Send',
-                    style: GoogleFonts.orbitron(
-                      fontSize: 25,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blueGrey[100], // disabled to 400
+                  child: (isLoading)
+                      ? CircularProgressIndicator(
+                          color: Colors.blueGrey[100],
+                        )
+                      : Text(
+                          'Send',
+                          style: GoogleFonts.orbitron(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blueGrey[100], // disabled to 400
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class RecvScr extends StatefulWidget {
+  final String recvPhoneNo;
+  const RecvScr({
+    super.key,
+    required this.recvPhoneNo,
+  });
+
+  @override
+  State<RecvScr> createState() => _RecvScrState();
+}
+
+class _RecvScrState extends State<RecvScr> {
+  bool fetchPressed = false;
+  bool isFetching = false;
+  // List<Map<String, String>> fetchedMsg = [];
+  dynamic fetchedMsg = [];
+
+  void mySnackbar({required String content}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          content,
+          style: GoogleFonts.ubuntu(
+            fontSize: 17,
+            color: Colors.blueGrey[50],
+          ),
+        ),
+        backgroundColor: Colors.blueGrey[800],
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+      ),
+    );
+  }
+
+  Future<void> _callGetMessage() async {
+    try {
+      final res = await http.get(Uri.parse(
+          'https://samess.onrender.com/get_message/${widget.recvPhoneNo}'));
+      if (res.statusCode == 200) {
+        // api call successful
+        print('statusCode= ${res.statusCode}');
+        final data = jsonDecode(res.body);
+        print('res= $data');
+
+        // call setState
+        setState(() {
+          fetchedMsg = data;
+        });
+        print('fetchedMsg...');
+        print('fetchedMsg= $fetchedMsg');
+      } else {
+        print('statusCode= ${res.statusCode}');
+        throw Exception('failed to fetch messages');
+      }
+    } catch (e) {
+      //
+    }
+  }
+
+  // demo code
+  final res = [
+    {
+      'sender': '08064290042',
+      'receiver': '09134596317',
+      'text': 'a12sd34fukuipfioiopoitjjkekheh'
+    },
+    {
+      'sender': '08064290042',
+      'receiver': '08064290045',
+      'text': 'well well well'
+    },
+    {
+      'sender': '08163890420',
+      'receiver': '09134596317',
+      'text': 'well well well'
+    },
+  ];
+  // ...
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        // leading
+        leading: Icon(
+          Icons.person,
+          color: Colors.blueGrey[200],
+          size: 30,
+        ),
+
+        // title
+        title: Text(
+          // '09134596317',
+          widget.recvPhoneNo,
+        ),
+        titleTextStyle: GoogleFonts.ubuntu(
+          fontSize: 21,
+        ),
+        titleSpacing: 1,
+
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(
+              right: 6,
+            ),
+            child: IconButton(
+              onPressed: () async {
+                setState(() {
+                  fetchPressed = true;
+                  isFetching = true;
+                });
+                await _callGetMessage();
+                setState(() {
+                  isFetching = false;
+                });
+                print(
+                    'https://samess.onrender.com/get_message/${widget.recvPhoneNo}');
+              },
+              icon: (isFetching)
+                  ? CircularProgressIndicator(
+                      color: Colors.blueGrey[100],
+                    )
+                  : Icon(Icons.refresh_sharp,
+                      color: Colors.blueGrey[200], size: 35),
+            ),
+          ),
+        ],
+      ),
+      body: (fetchPressed)
+          ? ListView.builder(
+              padding: const EdgeInsets.all(10),
+              // TODO: replace res with fetchedMsg
+              itemCount: fetchedMsg.length,
+              itemBuilder: (context, index) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 5),
+                  child: ListTile(
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (BuildContext context) => DecryptMsgScr(
+                                    senderNo: '${fetchedMsg[index]['sender']}',
+                                    ciphertext: '${fetchedMsg[index]['text']}',
+                                    encIV: '${fetchedMsg[index]['iv']}',
+                                    msgID:
+                                        int.parse('${fetchedMsg[index]['id']}'),
+                                  )));
+                    },
+                    contentPadding: const EdgeInsets.only(
+                      left: 10,
+                      top: 5,
+                      right: 10,
+                      bottom: 5,
+                    ),
+                    tileColor: Colors.blueGrey[800],
+                    leading: const Icon(
+                      Icons.message_sharp,
+                      size: 45,
+                    ),
+                    iconColor: Colors.blueGrey[100],
+                    title: Text('${fetchedMsg[index]['sender']}'),
+                    titleTextStyle: TextStyle(
+                      color: Colors.blueGrey[50],
+                      fontSize: 17,
+                    ),
+                    trailing: const Icon(
+                      Icons.lock_outline_sharp,
+                      size: 28,
+                    ),
+                  ),
+                );
+              },
+            )
+          : Center(
+              child: Icon(
+                Icons.messenger_outline_sharp,
+                size: 160,
+                color: Colors.blueGrey[800],
+              ),
+            ),
+      // body: ListView.builder(
+      //     itemCount: 5,
+      //     itemBuilder: (context, i) {
+      //       return const ListTile(
+      //         title: Text('item[s]'),
+      //       );
+      //     }),
+      // body:  Padding(
+      //   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      //   child: Column(
+      //     children: [
+      //       ListTile(
+      //         contentPadding: const EdgeInsets.only(left: 10, top: 5, right: 0, bottom: 5,),
+      //         tileColor: Colors.blueGrey[800],
+      //         leading: const Icon(Icons.message_sharp, size: 45,),
+      //         iconColor: Colors.blueGrey[100],
+      //         title: const Text('09039418988'),
+      //         titleTextStyle:  TextStyle(
+      //           color: Colors.blueGrey[50],
+      //           fontSize: 17,
+      //         ),
+      //         trailing: IconButton(onPressed: () {}, icon: const Icon(Icons.lock_outline_sharp, size: 28,)),
+      //       ),
+      //       const SizedBox(height: 5,),
+      //       ListTile(
+      //         contentPadding: const EdgeInsets.only(left: 10, top: 5, right: 0, bottom: 5,),
+      //         tileColor: Colors.blueGrey[800],
+      //         leading: const Icon(Icons.message_sharp, size: 45,),
+      //         iconColor: Colors.blueGrey[100],
+      //         title: const Text('09039418988'),
+      //         titleTextStyle:  TextStyle(
+      //           color: Colors.blueGrey[50],
+      //           fontSize: 17,
+      //         ),
+      //         trailing: IconButton(onPressed: () {}, icon: const Icon(Icons.lock_outline_sharp, size: 28,)),
+      //       ),
+      //       const SizedBox(height: 5,),
+      //       ListTile(
+      //         contentPadding: const EdgeInsets.only(left: 10, top: 5, right: 0, bottom: 5,),
+      //         tileColor: Colors.blueGrey[800],
+      //         leading: const Icon(Icons.message_sharp, size: 45,),
+      //         iconColor: Colors.blueGrey[100],
+      //         title: const Text('09039418988'),
+      //         titleTextStyle:  TextStyle(
+      //           color: Colors.blueGrey[50],
+      //           fontSize: 17,
+      //         ),
+      //         trailing: IconButton(onPressed: () {}, icon: const Icon(Icons.lock_outline_sharp, size: 28,)),
+      //       ),
+      //     ],
+      //   ),
+      // ),
+      // body: ListView.builder(itemCount: res.length, itemBuilder: (context, index) {
+      //   return ListTile(
+      //     title: Text('${res[index]['sender']}'),
+      //   );
+      // }),
+    );
+  }
+}
+
+class DecryptMsgScr extends StatefulWidget {
+  final String senderNo;
+  final String ciphertext;
+  final String encIV;
+  final int msgID;
+
+  const DecryptMsgScr(
+      {super.key,
+      required this.senderNo,
+      required this.ciphertext,
+      required this.encIV,
+      required this.msgID});
+
+  @override
+  State<DecryptMsgScr> createState() => _DecryptMsgScrState();
+}
+
+class _DecryptMsgScrState extends State<DecryptMsgScr> {
+  final _keyController = TextEditingController();
+  final _ptController = TextEditingController();
+  IconData? lockIcon = Icons.lock_outline_sharp;
+
+  void mySnackbar({required String content}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          content,
+          style: GoogleFonts.ubuntu(
+            fontSize: 17,
+            color: Colors.blueGrey[50],
+          ),
+        ),
+        backgroundColor: Colors.blueGrey[800],
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+      ),
+    );
+  }
+
+  void _decryptData() {
+    final decrypter = encrypt.Encrypter(encrypt.AES(
+      encrypt.Key.fromBase64(_keyController.text),
+      mode: encrypt.AESMode.cbc,
+    ));
+
+    // decrypt
+    final decrypted = decrypter.decrypt(
+      encrypt.Encrypted.fromBase64(widget.ciphertext),
+      iv: encrypt.IV.fromBase64(widget.encIV),
+    );
+
+    setState(() {
+      _ptController.text = decrypted;
+    });
+    print('decrypted= $decrypted');
+  }
+
+  Future<void> _updateMsgStatus() async {
+    final res = await http.get(
+        Uri.parse('https://samess.onrender.com/status_seen/${widget.msgID}'));
+
+    if (res.statusCode == 200) {
+      // api call succ; msg status updated
+      print('msgStatus statusCode= ${res.statusCode}');
+    } else {
+      throw Exception('Cannot update message status after decryption!');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        // leading
+        leading: IconButton(
+          onPressed: () {
+            return Navigator.pop(context);
+          },
+          icon: Icon(
+            Icons.arrow_back_ios_sharp,
+            color: Colors.blueGrey[200],
+            size: 30,
+          ),
+        ),
+
+        // title
+        title: Text(widget.senderNo),
+        titleTextStyle: GoogleFonts.ubuntu(
+          fontSize: 21,
+        ),
+        titleSpacing: 1,
+
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(
+              right: 6,
+            ),
+            child: IconButton(
+              onPressed: () async {
+                if (_keyController.text.isNotEmpty) {
+                  // do decryption
+                  print('decrypting...');
+                  _decryptData();
+                  print('ct decrypted succ!');
+                  // reset lock icon
+                  setState(() {
+                    lockIcon = Icons.lock_open_sharp;
+                  });
+                  if (_ptController.text.isNotEmpty) {
+                    // call api to update msg status to seen
+                    await _updateMsgStatus();
+                    mySnackbar(content: 'Message status: seen :)');
+                  }
+                } else {
+                  mySnackbar(content: 'Add key to decrypt!');
+                }
+              },
+              icon: Icon(
+                lockIcon,
+              ),
+              iconSize: 33,
+              color: Colors.blueGrey[200],
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height - 150,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // input pre-agreed key to decrypt
+              SizedBox(
+                height: 125,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _keyController,
+                        onTapOutside: (event) =>
+                            FocusScope.of(context).unfocus(),
+                        style: const TextStyle(
+                          fontSize: 17,
+                          color: Colors.white,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Decryption Key',
+                          labelStyle: TextStyle(
+                            color: Colors.blueGrey[800],
+                          ),
+                          floatingLabelBehavior: FloatingLabelBehavior.never,
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade200,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.zero,
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade200,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ciphertext
+              Text(
+                'Ciphertext',
+                style: TextStyle(
+                  color: Colors.blueGrey[600],
+                  fontSize: 18,
+                ),
+              ),
+              SizedBox(
+                height: 150,
+                child: TextField(
+                  // TODO: add controller
+                  controller: TextEditingController(text: widget.ciphertext),
+                  onTapOutside: (event) => FocusScope.of(context).unfocus(),
+                  keyboardType: TextInputType.none,
+                  readOnly: true,
+                  maxLines: null,
+                  expands: true,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    color: Colors.black,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.blueGrey[100],
+                    focusedBorder: const UnderlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(
+                        color: Colors.blueGrey,
+                        width: 2.5,
+                      ),
+                    ),
+                    border: const UnderlineInputBorder(
+                      borderRadius: BorderRadius.zero,
                     ),
                   ),
                 ),
               ),
+              Divider(
+                color: Colors.blueGrey[800],
+                height: 15,
+              ),
+              // decrypted text; plaintext
+              Text(
+                'Plaintext',
+                style: TextStyle(
+                  color: Colors.blueGrey[600],
+                  fontSize: 18,
+                ),
+              ),
+              SizedBox(
+                height: 300,
+                child: TextField(
+                  controller: _ptController,
+                  keyboardType: TextInputType.none,
+                  readOnly: true,
+                  maxLines: null,
+                  expands: true,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    color: Colors.black,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.blueGrey[100],
+                    focusedBorder: const UnderlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(
+                        color: Colors.blueGrey,
+                        width: 2.5,
+                      ),
+                    ),
+                    border: const UnderlineInputBorder(
+                      borderRadius: BorderRadius.zero,
+                    ),
+                  ),
+                ),
+              ),
+
+              // // TODO: add a read-only textfield for key gen. And an icon btn beside it to init the action
+              // SizedBox(
+              //   height: 125,
+              //   child: Row(
+              //     children: [
+              //       Expanded(
+              //         child: TextField(
+              //           onTapOutside: (event) =>
+              //               FocusScope.of(context).unfocus(),
+              //           keyboardType: TextInputType.none,
+              //           readOnly: true,
+              //           style: const TextStyle(
+              //             fontSize: 17,
+              //             color: Colors.white,
+              //           ),
+              //           // set controller to an empty str, and set state when 'keyGen' btn is pressed
+              //           controller: _keyGenController,
+              //           decoration: InputDecoration(
+              //             enabledBorder: OutlineInputBorder(
+              //               borderRadius: BorderRadius.zero,
+              //               borderSide: BorderSide(
+              //                 color: Colors.blueGrey.shade800,
+              //               ),
+              //             ),
+              //             focusedBorder: OutlineInputBorder(
+              //               borderRadius: BorderRadius.zero,
+              //               borderSide: BorderSide(
+              //                 color: Colors.blueGrey.shade800,
+              //               ),
+              //             ),
+              //           ),
+              //         ),
+              //       ),
+              //       // kenGen icon btn
+              //       IconButton(
+              //         onPressed: () {
+              //           // gen random, unique key
+              //           String generatedKey;
+              //           try {
+              //             generatedKey = encrypt.Key.fromLength(16).base64;
+              //             if (generatedKey.isNotEmpty) {
+              //               // test: print gen key
+              //               print('key succ gen= $generatedKey');
+              //               setState(() {
+              //                 _keyGenController.text = generatedKey;
+              //                 // reset its field to show the newly gen key
+              //                 encKey = generatedKey;
+              //               });
+              //             }
+              //           } catch (e) {
+              //             print('cannot gen key; $e');
+              //           }
+              //         },
+              //         icon: Icon(
+              //           Icons.key_sharp,
+              //           color: Colors.blueGrey[200],
+              //           size: 30,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+
+              // Divider(
+              //   color: Colors.blueGrey[800],
+              //   height: 20,
+              // ),
+              // // ciphertext
+              // SizedBox(
+              //   height: 130,
+              //   child: TextField(
+              //     controller: _ctController,
+              //     onTapOutside: (event) => FocusScope.of(context).unfocus(),
+              //     keyboardType: TextInputType.none,
+              //     readOnly: true,
+              //     maxLines: null,
+              //     expands: true,
+              //     style: const TextStyle(
+              //       fontSize: 17,
+              //       color: Colors.black,
+              //     ),
+              //     decoration: InputDecoration(
+              //       filled: true,
+              //       fillColor: Colors.blueGrey[100],
+              //       focusedBorder: const UnderlineInputBorder(
+              //         borderSide: BorderSide(
+              //           color: Colors.blueGrey,
+              //           width: 2.5,
+              //         ),
+              //       ),
+              //       border: const UnderlineInputBorder(
+              //         borderRadius: BorderRadius.zero,
+              //       ),
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         ),
